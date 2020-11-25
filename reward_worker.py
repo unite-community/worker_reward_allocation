@@ -23,7 +23,7 @@ infura_url = secret['INFURAURL1']
 web3 = Web3(Web3.HTTPProvider(infura_url))
 print(f"Connected to infura: {infura_url}")
 
-# load abi
+# load abi§ 
 with open('abi.json') as f:
     abi = json.load(f)
 # load bytecode
@@ -128,7 +128,8 @@ while True:
                 db = mysql.connect(host=secret['DBHOST'], user=secret['DBUSER'], passwd=secret['DBPASS'], database=secret['DBTABLE'])
                 cursor = db.cursor()
                 campaign_id = res['campaign_id']
-                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id}";'
+                manager_ethereum_address = res['manager_ethereum_address']
+                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id}" and manager_ethereum_address = {manager_ethereum_address};'
                 cursor.execute(query)
                 records_rewards = cursor.fetchall()
                 print(f"campaign #{res['campaign_id']} has {len(records_rewards)} rewards claimed, {res['maximum_rewards'] - len(records_rewards)} remaining")
@@ -169,6 +170,7 @@ while True:
                     tweets.append(dict(zip(['id', 'tweet_id', 'referenced_tweet_id', 'twitter_handle', 'author_id', 'created_at', 'following', 'following_processed'], record)))
                 tweets = pd.DataFrame(tweets)
 
+
                 ##########################
                 ### WORK OUT WHO TO REWARD
                 ##########################
@@ -177,7 +179,7 @@ while True:
                 db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
                 cursor = db.cursor()
                 campaign_id = campaign['campaign_id']
-                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id};'
+                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id} and manager_ethereum_address = {manager_ethereum_address};'
                 cursor.execute(query)
                 records_rewards = cursor.fetchall()
                 cursor.close()
@@ -205,7 +207,7 @@ while True:
                     if handle in user_list:
                         # campaign must have rewards left
                         if rewards_remaining > 0: 
-                            if 'twitter_handle' in list(df.columns) and handle in list(df['twitter_handle']):
+                            if 'twitter_handle' in list(df.columns) and handle in handles:
                                 print(f"  # {handle} already rewarded")
                             else:
                                 print(f"  # {handle} needs rewards")
