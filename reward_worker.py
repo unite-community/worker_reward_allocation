@@ -111,7 +111,7 @@ while True:
             # get all campaigns with twitter handle so we can get twitter link
             db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
             cursor = db.cursor()
-            query = f'SELECT campaign_id, manager_ethereum_address, maximum_rewards, campaign_type, twitter_status_id  FROM unite_db.campaigns;'
+            query = f'SELECT campaign_id, manager_ethereum_address, maximum_rewards, campaign_type, twitter_status_id FROM unite_db.campaigns;'
             cursor.execute(query)
             records = cursor.fetchall()
             print(f"{len(records)} campaigns found")
@@ -129,7 +129,7 @@ while True:
                 cursor = db.cursor()
                 campaign_manager_ethereum_address = res['manager_ethereum_address']
                 campaign_id = res['campaign_id']
-                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id} AND manager_ethereum_address = {campaign_manager_ethereum_address}";'
+                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id}" AND manager_ethereum_address = "{campaign_manager_ethereum_address}";'
                 cursor.execute(query)
                 records_rewards = cursor.fetchall()
                 print(f"campaign #{res['campaign_id']} has {len(records_rewards)} rewards claimed, {res['maximum_rewards'] - len(records_rewards)} remaining")
@@ -179,7 +179,7 @@ while True:
                 cursor = db.cursor()
                 campaign_manager_ethereum_address = campaign['manager_ethereum_address']
                 campaign_id = campaign['campaign_id']
-                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id} AND manager_ethereum_address = {campaign_manager_ethereum_address};'
+                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = "{campaign_id}" AND manager_ethereum_address = "{campaign_manager_ethereum_address}";'
                 cursor.execute(query)
                 records_rewards = cursor.fetchall()
                 cursor.close()
