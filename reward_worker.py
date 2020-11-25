@@ -127,7 +127,7 @@ while True:
                 # check how many rewards claimed for this campaign
                 db = mysql.connect(host=secret['DBHOST'], user=secret['DBUSER'], passwd=secret['DBPASS'], database=secret['DBTABLE'])
                 cursor = db.cursor()
-                campaign_manager_ethereum_address = campaign['manager_ethereum_address']
+                campaign_manager_ethereum_address = res['manager_ethereum_address']
                 campaign_id = res['campaign_id']
                 query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id} AND manager_ethereum_address = {campaign_manager_ethereum_address}";'
                 cursor.execute(query)
