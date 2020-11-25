@@ -66,176 +66,286 @@ nextrun15minutes = round_time(datetime.datetime.now(), date_delta=datetime.timed
 
 while True:
     now = datetime.datetime.now()
-
+    
     if now > nextrun15seconds:
         print(f"XXX, {now}, {nextrun15seconds}")
 
         try:
 
-            ##########################
-            ### WRITE TO REWARDS TABLE
-            ##########################
-            print(now, 'do 15s stuff')
+	        ##########################
+	        ### WRITE TO REWARDS TABLE
+	        ##########################
+	        print(now, 'do 15s stuff')
+	        
+	        ###########################
+	        ## GET USER:WALLET MAPPINGS
+	        ###########################
 
-            ###########################
-            ## GET USER:WALLET MAPPINGS
-            ###########################
+	        # convert rewards pending twitter handles to wallet ids
+	        db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	        cursor = db.cursor()
+	        query = f'SELECT twitter_handle, ethereum_address FROM users;'
+	        cursor.execute(query)
+	        records = cursor.fetchall()
+	        cursor.close()
+	        db.close()
+	        # convert to dataframe
+	        users = []
+	        for record in records:
+	            users.append(dict(zip(['twitter_handle', 'ethereum_address'], record)))
+	        # convert to dataframe and lowercase handle
+	        users = pd.DataFrame(users)
+	        users['twitter_handle'] = users['twitter_handle'].str.lower()
 
-            # convert rewards pending twitter handles to wallet ids
-            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
-            cursor = db.cursor()
-            query = f'SELECT twitter_handle, ethereum_address FROM users;'
-            cursor.execute(query)
-            records = cursor.fetchall()
-            cursor.close()
-            db.close()
-            # convert to dataframe
-            users = []
-            for record in records:
-                users.append(dict(zip(['twitter_handle', 'ethereum_address'], record)))
-            # convert to dataframe and lowercase handle
-            users = pd.DataFrame(users)
-            users['twitter_handle'] = users['twitter_handle'].str.lower()
+	        # create dicts
+	        user_wallets = dict(zip(list(users['twitter_handle']), users['ethereum_address']))
+	        wallets_users = dict(zip(list(users['ethereum_address']), users['twitter_handle']))
 
-            # create dicts
-            user_wallets = dict(zip(list(users['twitter_handle']), users['ethereum_address']))
-            wallets_users = dict(zip(list(users['ethereum_address']), users['twitter_handle']))
+	        # create list
+	        user_list = list(user_wallets.keys())
 
-            # create list
-            user_list = list(user_wallets.keys())
+	        #######################
+	        ## GET ACTIVE CAMPAIGNS
+	        #######################
 
-            #######################
-            ## GET ACTIVE CAMPAIGNS
-            #######################
+	        # get all campaigns with twitter handle so we can get twitter link
+	        db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	        cursor = db.cursor()
+	        query = f'SELECT campaign_id, manager_ethereum_address, maximum_rewards, campaign_type, twitter_status_id  FROM unite_db.campaigns;'
+	        cursor.execute(query)
+	        records = cursor.fetchall()
+	        print(f"{len(records)} campaigns found")
+	        cursor.close()
+	        db.close()
 
-            # get all campaigns with twitter handle so we can get twitter link
-            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
-            cursor = db.cursor()
-            query = f'SELECT campaign_id, manager_ethereum_address, maximum_rewards, campaign_type, twitter_status_id  FROM unite_db.campaigns;'
-            cursor.execute(query)
-            records = cursor.fetchall()
-            print(f"{len(records)} campaigns found")
-            cursor.close()
-            db.close()
+	        columns = ['campaign_id', 'manager_ethereum_address', 'maximum_rewards', 'campaign_type', 'twitter_status_id']
 
-            columns = ['campaign_id', 'manager_ethereum_address', 'maximum_rewards', 'campaign_type', 'twitter_status_id']
+	        campaigns = []
+	        for record in records:
+	            res = dict(zip(columns, record))
 
-            campaigns = []
-            for record in records:
-                res = dict(zip(columns, record))
+	            # check how many rewards claimed for this campaign
+	            db = mysql.connect(host=secret['DBHOST'], user=secret['DBUSER'], passwd=secret['DBPASS'], database=secret['DBTABLE'])
+	            cursor = db.cursor()
+	            campaign_id = res['campaign_id']
+	            query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id}";'
+	            cursor.execute(query)
+	            records_rewards = cursor.fetchall()
+	            print(f"campaign #{res['campaign_id']} has {len(records_rewards)} rewards claimed, {res['maximum_rewards'] - len(records_rewards)} remaining")
+	            cursor.close()
+	            db.close()
 
-                # check how many rewards claimed for this campaign
-                db = mysql.connect(host=secret['DBHOST'], user=secret['DBUSER'], passwd=secret['DBPASS'], database=secret['DBTABLE'])
-                cursor = db.cursor()
-                campaign_id = res['campaign_id']
-                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id}";'
-                cursor.execute(query)
-                records_rewards = cursor.fetchall()
-                print(f"campaign #{res['campaign_id']} has {len(records_rewards)} rewards claimed, {res['maximum_rewards'] - len(records_rewards)} remaining")
-                cursor.close()
-                db.close()
+	            # calculate rewards remaining
+	            res['rewards_remaining'] = res['maximum_rewards'] - len(records_rewards)
 
-                # calculate rewards remaining
-                res['rewards_remaining'] = res['maximum_rewards'] - len(records_rewards)
+	            # only keep active campaigns
+	            if res['rewards_remaining'] > 0:
+	                campaigns.append(res)
 
-                # only keep active campaigns
-                if res['rewards_remaining'] > 0:
-                    campaigns.append(res)
+	        print(f"{len(campaigns)} active campaigns found")
 
-            print(f"{len(campaigns)} active campaigns found")
+	        #################################################
+	        ### WRITE TO REWARDS TABLE BASED ON TWITTER TABLE
+	        #################################################
 
-            #################################################
-            ### WRITE TO REWARDS TABLE BASED ON TWITTER TABLE
-            #################################################
+	        for campaign in campaigns:
+	            print(f"Begin rewards process for campaign {campaign_id}")
 
-            for campaign in campaigns:
-                print(f"Begin rewards process for campaign {campaign_id}")
+	            ###########################
+	            ### GET TWEETS FOR CAMPAIGN
+	            ###########################
 
-                ###########################
-                ### GET TWEETS FOR CAMPAIGN
-                ###########################
+	            # get tweets for this campaign
+	            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	            cursor = db.cursor()
+	            query = f'SELECT id, tweet_id, referenced_tweet_id, twitter_handle, author_id, created_at, following, following_processed FROM unite_db.twitter where referenced_tweet_id = {campaign["twitter_status_id"]};'
+	            cursor.execute(query)
+	            records_tweets = cursor.fetchall()
+	            cursor.close()
+	            db.close()
+	            #
+	            tweets = []
+	            for record in records_tweets:
+	                tweets.append(dict(zip(['id', 'tweet_id', 'referenced_tweet_id', 'twitter_handle', 'author_id', 'created_at', 'following', 'following_processed'], record)))
+	            tweets = pd.DataFrame(tweets)
 
-                # get tweets for this campaign
-                db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
-                cursor = db.cursor()
-                query = f'SELECT id, tweet_id, referenced_tweet_id, twitter_handle, author_id, created_at, following, following_processed FROM unite_db.twitter where referenced_tweet_id = {campaign["twitter_status_id"]};'
-                cursor.execute(query)
-                records_tweets = cursor.fetchall()
-                cursor.close()
-                db.close()
-                #
-                tweets = []
-                for record in records_tweets:
-                    tweets.append(dict(zip(['id', 'tweet_id', 'referenced_tweet_id', 'twitter_handle', 'author_id', 'created_at', 'following', 'following_processed'], record)))
-                tweets = pd.DataFrame(tweets)
+	            ##########################
+	            ### WORK OUT WHO TO REWARD
+	            ##########################
 
-                ##########################
-                ### WORK OUT WHO TO REWARD
-                ##########################
+	            # get all rewards for this campaign as dataframe
+	            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	            cursor = db.cursor()
+	            campaign_id = campaign['campaign_id']
+	            query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id};'
+	            cursor.execute(query)
+	            records_rewards = cursor.fetchall()
+	            cursor.close()
+	            db.close()
+	            # convert to dataframe
+	            rewards = []
+	            for record in records_rewards:
+	                rewards.append(dict(zip(['id', 'campaign_id', 'twitter_handle', 'blockchain_write_time'], record)))
+	            df = pd.DataFrame(rewards)
 
-                # get all rewards for this campaign as dataframe
-                db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
-                cursor = db.cursor()
-                campaign_id = campaign['campaign_id']
-                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id};'
-                cursor.execute(query)
-                records_rewards = cursor.fetchall()
-                cursor.close()
-                db.close()
-                # convert to dataframe
-                rewards = []
-                for record in records_rewards:
-                    rewards.append(dict(zip(['id', 'campaign_id', 'twitter_handle', 'blockchain_write_time'], record)))
-                df = pd.DataFrame(rewards)
+	            # get list of handles already rewarded for this campaign
+	            handles = []
+	            if len(tweets) > 0:
+	                handles = list(tweets['twitter_handle'].unique())
+	                handles = [h.lower() for h in handles]
 
-                # get list of handles already rewarded for this campaign
-                handles = []
-                if len(tweets) > 0:
-                    handles = list(tweets['twitter_handle'].unique())
-                    handles = [h.lower() for h in handles]
+	            # going to decrement rewards remaining as they're assigned
+	            rewards_remaining = campaign['rewards_remaining']
 
-                # going to decrement rewards remaining as they're assigned
-                rewards_remaining = campaign['rewards_remaining']
+	            # loop over handles and check who to reward
+	            for i, handle in enumerate(handles):
+	                print(f"{i+1} / {len(handles)} checking if {handle} already rewarded")
 
-                # loop over handles and check who to reward
-                for i, handle in enumerate(handles):
-                    print(f"{i+1} / {len(handles)} checking if {handle} already rewarded")
+	                # user must be "registered"
+	                if handle in user_list:
+	                    # campaign must have rewards left
+	                    if rewards_remaining > 0: 
+	                        if 'twitter_handle' in list(df.columns) and handle in list(df['twitter_handle']):
+	                            print(f"  # {handle} already rewarded")
+	                        else:
+	                            print(f"  # {handle} needs rewards")
+	                            # write rewards to database (with null blockchainwritetime)
+	                            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	                            cursor = db.cursor()
+	                            query = "INSERT INTO rewards (campaign_id, twitter_handle) VALUES (%s, %s)"
+	                            values = (campaign['campaign_id'], handle)
+	                            cursor.execute(query, values)
+	                            db.commit()
+	                            print(cursor.rowcount, "record inserted")
+	                            cursor.close()
+	                            db.close()  
 
-                    # user must be "registered"
-                    if handle in user_list:
-                        # campaign must have rewards left
-                        if rewards_remaining > 0: 
-                            if 'twitter_handle' in list(df.columns) and handle in list(df['twitter_handle']):
-                                print(f"  # {handle} already rewarded")
-                            else:
-                                print(f"  # {handle} needs rewards")
-                                # write rewards to database (with null blockchainwritetime)
-                                db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
-                                cursor = db.cursor()
-                                query = "INSERT INTO rewards (campaign_id, twitter_handle) VALUES (%s, %s)"
-                                values = (campaign['campaign_id'], handle)
-                                cursor.execute(query, values)
-                                db.commit()
-                                print(cursor.rowcount, "record inserted")
-                                cursor.close()
-                                db.close()  
+	                            rewards_remaining -= 1
+	                    else:
+	                        print("Rewards exceeded for campaign")
+	                        break
+	                else:
+	                    print("  # User not registered")
+	        
+	        
+	        # update next run to 15 seconds from now
+	        nextrun15seconds = now + datetime.timedelta(seconds=15)
+	        
+	        ###############
+	        ### WRITE TO SC
+	        ###############
+	        # check if do 15 min stuff
+	        now = datetime.datetime.now()
+	        print(f"{now} next 15 min run {nextrun15minutes}  DEBUG: {now > nextrun15minutes}")
+	        if now > nextrun15minutes:
+	            print(now, "do 15 min stuff")
 
-                                rewards_remaining -= 1
-                        else:
-                            print("Rewards exceeded for campaign")
-                            break
-                    else:
-                        print("  # User not registered")
+	            #######################
+	            ### WRITE REWARDS TO SC
+	            #######################
+
+	            # get campaign campaign_id:manager_ethereum_address mapping
+	            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	            cursor = db.cursor()
+	            campaign_id = campaign['campaign_id']
+	            query = f'SELECT campaign_id, manager_ethereum_address FROM unite_db.campaigns;'
+	            cursor.execute(query)
+	            records_rewards = cursor.fetchall()
+	            cursor.close()
+	            db.close()
+	            # convert to dataframe
+	            rewards = []
+	            for record in records_rewards:
+	                rewards.append(dict(zip(['campaign_id', 'manager_ethereum_address'], record)))
+	            df = pd.DataFrame(rewards)
+	            # create dict
+	            ids_manageraddresses = dict(zip(list(df['campaign_id']),list(df['manager_ethereum_address'])))
+	            ids_manageraddresses
 
 
-            # update next run to 15 seconds from now
-            nextrun15seconds = now + datetime.timedelta(seconds=15)
+	            # get all rewards for this campaign as dataframe
+	            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	            cursor = db.cursor()
+	            campaign_id = campaign['campaign_id']
+	            query = f'SELECT campaign_id, twitter_handle FROM unite_db.rewards where blockchain_write_time is NULL;'
+	            cursor.execute(query)
+	            records_rewards = cursor.fetchall()
+	            cursor.close()
+	            db.close()
+	            # convert to dataframe
+	            rewards = []
+	            for record in records_rewards:
+	                rewards.append(dict(zip(['campaign_id', 'twitter_handle'], record)))
+	            df = pd.DataFrame(rewards)
+	            print(f"DEGBUG: LEN DF {len(df)}")
 
-            print(f'{now} NEXT 15sec RUN: {nextrun15seconds}')
+	            # convert campaigns to reward to unique list
+	            campaigns_to_reward = []
+	            if 'campaign_id' in df.columns:
+	                campaigns_to_reward = list(df['campaign_id'].unique())
+	                print(f"{len(campaigns_to_reward)} campaigns to write to SC")
 
-        except Exception as e:
-            print("ERROR")
-            print(e)
+	            for campaign_id in campaigns_to_reward:
+
+	                ###################################################
+	                ### GET LIST OF WALLETS TO REWARD FOR THIS CAMPAIGN
+	                ###################################################
+
+	                # list of handles to reward
+	                rewards_pending = list(df[df['campaign_id'] == campaign_id]['twitter_handle'])
+
+	                # convert from twitter handles to wallets
+	                rewards_pending = [user_wallets[r] for r in rewards_pending]
+
+	                ###################################
+	                ### WRITE REWARDS TO SMART CONTRACT
+	                ###################################
+	                contract = web3.eth.contract(abi=abi, bytecode=bytecode)
+
+	                # rewardAddresses(address _campaignManagerAddress, uint256 _campaignId, address[] calldata _addresses)
+	                print(f"Writing {len(rewards_pending)} rewards to SC for campaign_id: {campaign_id} with manager_address {ids_manageraddresses[campaign_id]}")
+
+	                tx = contract.functions.rewardAddresses(ids_manageraddresses[campaign_id], int(campaign_id), rewards_pending).buildTransaction(
+	                    {'gas':1000000, 
+	                     'gasPrice': web3.toWei('1', 'gwei'),
+	                     'from': secret['ETHBACKENDPUBLIC'],
+	                     'to': contract_address,
+	                     'nonce': web3.eth.getTransactionCount(secret['ETHBACKENDPUBLIC'])
+	                    })
+
+	                signed_txn = web3.eth.account.signTransaction(tx, private_key=secret['ETHBACKENDPRIVATE'])
+	                tx_hash = web3.eth.sendRawTransaction(signed_txn.rawTransaction)
+	                print(f"TX hash: {tx_hash.hex()}")
+	                receipt = web3.eth.waitForTransactionReceipt(tx_hash)
+	                print(receipt)
+
+	                if receipt['status'] == 1:
+	                    print(f"SUCCESS writing rewards to SC for campaign {campaign_id} tx: {tx_hash.hex()}")
+
+	                    # update blockchain_write_time
+	                    db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+	                    cursor = db.cursor()
+	                    query = "UPDATE rewards SET blockchain_write_time=%s WHERE campaign_id=%s;"
+	                    values = (str(datetime.datetime.now()).split('.')[0], str(campaign_id))
+	                    cursor.execute(query, values)
+	                    db.commit()
+	                    print(cursor.rowcount, "record updated")
+	                    cursor.close()
+	                    db.close()  
+	                else:
+	                    print(f"ERROR FAIL writing rewards to SC for campaign {campaign_id} tx: {tx_hash.hex()}")
+	        
+	            # update next 15 min run
+	            nextrun15minutes = round_time(now, date_delta=datetime.timedelta(minutes=15), to='up')
+
+	            # update next 15 second run too
+	            nextrun15seconds = now + datetime.timedelta(seconds=15)
+
+	        print(f'{now} NEXT 15sec RUN: {nextrun15seconds}')
+	        print(f'{now} NEXT 15min RUN: {nextrun15minutes}')
+	    except Exception as e:
+	    	print("ERROR")
+	    	print(e)
     else:
         print(f"{now} sleeping 15 seconds")
         time.sleep(15)
