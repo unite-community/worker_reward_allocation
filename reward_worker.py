@@ -127,8 +127,9 @@ while True:
                 # check how many rewards claimed for this campaign
                 db = mysql.connect(host=secret['DBHOST'], user=secret['DBUSER'], passwd=secret['DBPASS'], database=secret['DBTABLE'])
                 cursor = db.cursor()
+                campaign_manager_ethereum_address = res['manager_ethereum_address']
                 campaign_id = res['campaign_id']
-                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id}";'
+                query = f'SELECT * FROM unite_db.rewards where campaign_id = "{campaign_id} AND manager_ethereum_address = {campaign_manager_ethereum_address}";'
                 cursor.execute(query)
                 records_rewards = cursor.fetchall()
                 print(f"campaign #{res['campaign_id']} has {len(records_rewards)} rewards claimed, {res['maximum_rewards'] - len(records_rewards)} remaining")
@@ -176,8 +177,9 @@ while True:
                 # get all rewards for this campaign as dataframe
                 db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
                 cursor = db.cursor()
+                campaign_manager_ethereum_address = campaign['manager_ethereum_address']
                 campaign_id = campaign['campaign_id']
-                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id};'
+                query = f'SELECT id, campaign_id, twitter_handle, blockchain_write_time FROM unite_db.rewards where campaign_id = {campaign_id} AND manager_ethereum_address = {campaign_manager_ethereum_address};'
                 cursor.execute(query)
                 records_rewards = cursor.fetchall()
                 cursor.close()
@@ -204,7 +206,7 @@ while True:
                     # user must be "registered"
                     if handle in user_list:
                         # campaign must have rewards left
-                        if rewards_remaining > 0: 
+                        if rewards_remaining > 0:
                             if 'twitter_handle' in list(df.columns) and handle in list(df['twitter_handle']):
                                 print(f"  # {handle} already rewarded")
                             else:
@@ -218,7 +220,7 @@ while True:
                                 db.commit()
                                 print(cursor.rowcount, "record inserted")
                                 cursor.close()
-                                db.close()  
+                                db.close()
 
                                 rewards_remaining -= 1
                         else:
