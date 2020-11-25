@@ -212,8 +212,8 @@ while True:
                                 # write rewards to database (with null blockchainwritetime)
                                 db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
                                 cursor = db.cursor()
-				                query = "INSERT INTO rewards (campaign_id, twitter_handle, manager_ethereum_address) VALUES (%s, %s, %s);"
-				                values = (campaign['campaign_id'], handle, campaign['manager_ethereum_address'])
+                                query = "INSERT INTO rewards (campaign_id, twitter_handle, manager_ethereum_address) VALUES (%s, %s, %s);"
+                                values = (campaign['campaign_id'], handle, campaign['manager_ethereum_address'])
                                 cursor.execute(query, values)
                                 db.commit()
                                 print(cursor.rowcount, "record inserted")
