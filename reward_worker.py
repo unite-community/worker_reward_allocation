@@ -169,6 +169,7 @@ while True:
                 for record in records_tweets:
                     tweets.append(dict(zip(['id', 'tweet_id', 'referenced_tweet_id', 'twitter_handle', 'author_id', 'created_at', 'following', 'following_processed'], record)))
                 tweets = pd.DataFrame(tweets)
+                tweet_handles = list(tweets['twitter_handle'].unique())
 
 
                 ##########################
@@ -193,16 +194,16 @@ while True:
 
                 # get list of handles already rewarded for this campaign
                 handles = []
-                if len(tweets) > 0:
-                    handles = list(tweets['twitter_handle'].unique())
+                if len(df) > 0:
+                    handles = list(df['twitter_handle'].unique())
                     handles = [h.lower() for h in handles]
 
                 # going to decrement rewards remaining as they're assigned
                 rewards_remaining = campaign['rewards_remaining']
 
                 # loop over handles and check who to reward
-                for i, handle in enumerate(handles):
-                    print(f"{i+1} / {len(handles)} checking if {handle} already rewarded")
+                for i, handle in enumerate(tweet_handles):
+                    print(f"{i+1} / {len(tweets)} checking if {handle} already rewarded")
 
                     # user must be "registered"
                     if handle in user_list:
