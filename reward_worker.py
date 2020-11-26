@@ -170,6 +170,7 @@ while True:
                     tweets.append(dict(zip(['id', 'tweet_id', 'referenced_tweet_id', 'twitter_handle', 'author_id', 'created_at', 'following', 'following_processed'], record)))
                 tweets = pd.DataFrame(tweets)
                 tweet_handles = list(tweets['twitter_handle'].unique())
+                tweet_handles = [h.lower() for h in tweet_handles]
 
 
                 ##########################
