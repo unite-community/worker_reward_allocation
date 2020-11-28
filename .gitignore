@@ -1,3 +1,5 @@
+.ipynb_checkpoints/*
+.DS_Store
 secret_staging.txt
 secret.txt
 .idea
