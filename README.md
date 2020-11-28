@@ -3,7 +3,7 @@
 Python worker that rewards users based on the contents of the twitter table.
 
 * Every 15 seconds, check twitter table and write to rewards table for active campaigns
-* Every 15 minutes, write rewards to smart contract
+* Jupyter notebook for manually assigning rewards
 
 
 ## Setup 
