@@ -171,6 +171,11 @@ while True:
                 for record in records_tweets:
                     tweets.append(dict(zip(['id', 'tweet_id', 'referenced_tweet_id', 'twitter_handle', 'author_id', 'created_at', 'following', 'following_processed'], record)))
                 tweets = pd.DataFrame(tweets)
+
+                # subset to only users who are following if campaign is rtf
+                if campaign['campaign_type'] == 'rtf': 
+                    print("Campaign is RTF - subsetting out non-following users")
+                    tweets = tweets[tweets['following'] == 1]
                 tweet_handles = list(tweets['twitter_handle'].unique())
                 tweet_handles = [h.lower() for h in tweet_handles]
 
