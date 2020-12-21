@@ -167,8 +167,8 @@ while True:
             ### WRITE TO REWARDS TABLE BASED ON TWITTER TABLE
             #################################################
 
-            for campaign in campaigns:
-                print(f"Begin rewards process for campaign {campaign_id}")
+            for j, campaign in enumerate(campaigns):
+                print(f"Begin rewards process for campaign {j+1}/{len(campaigns)} {campaign['campaign_id']}:{campaign['manager_ethereum_address']}")
 
 
                 ################
