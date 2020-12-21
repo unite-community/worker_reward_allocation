@@ -64,7 +64,6 @@ def round_time(dt=None, date_delta=datetime.timedelta(minutes=1), to='average'):
 
 # next run is now
 nextrun15seconds = datetime.datetime.now()
-nextrun15minutes = round_time(datetime.datetime.now(), date_delta=datetime.timedelta(minutes=1), to='up')
 
 while True:
     now = datetime.datetime.now()
@@ -78,6 +77,23 @@ while True:
             ### WRITE TO REWARDS TABLE
             ##########################
             print(now, 'do 15s stuff')
+
+
+            ##################
+            ## FETCH BLACKLIST
+            ##################
+
+            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+            cursor = db.cursor()
+            query = f'SELECT twitter_username FROM blacklist;'
+            cursor.execute(query)
+            records = cursor.fetchall()
+            cursor.close()
+            db.close()
+            blacklist_db = []
+            for record in records:
+                blacklist_db.append(record[0])
+
 
             ###########################
             ## GET USER:WALLET MAPPINGS
@@ -154,6 +170,29 @@ while True:
             for campaign in campaigns:
                 print(f"Begin rewards process for campaign {campaign_id}")
 
+
+                ################
+                ## GET WHITELIST
+                ################
+
+                db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+                cursor = db.cursor()
+                query = f'SELECT twitter_username FROM whitelist WHERE campaign_id = %s AND manager_ethereum_address = %s;'
+                values = (campaign['campaign_id'], campaign['manager_ethereum_address'])
+                cursor.execute(query, values)
+                records = cursor.fetchall()
+                cursor.close()
+                db.close()
+                whitelist = []
+                for record in records:
+                    whitelist.append(record[0])
+
+                has_whitelist = False
+                if len(whitelist) > 0:
+                    has_whitelist = True
+                    print(f"campaign has whitelist with {len(whitelist)} whitelisted users (id: {campaign['campaign_id']}, manager_ethereum_address: {campaign['manager_ethereum_address']})")
+
+
                 ###########################
                 ### GET TWEETS FOR CAMPAIGN
                 ###########################
@@ -213,31 +252,41 @@ while True:
                 for i, handle in enumerate(tweet_handles):
                     print(f"{i+1} / {len(tweets)} checking if {handle} already rewarded")
 
-                    # user must be "registered"
-                    if handle in user_list:
-                        # campaign must have rewards left
-                        if rewards_remaining > 0:
-                            if 'twitter_handle' in list(df.columns) and handle in handles:
-                                print(f"  # {handle} already rewarded")
-                            else:
-                                print(f"  # {handle} needs rewards")
-                                # write rewards to database (with null blockchainwritetime)
-                                db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
-                                cursor = db.cursor()
-                                query = "INSERT INTO rewards (campaign_id, twitter_handle, manager_ethereum_address) VALUES (%s, %s, %s);"
-                                values = (campaign['campaign_id'], handle, campaign['manager_ethereum_address'])
-                                cursor.execute(query, values)
-                                db.commit()
-                                print(cursor.rowcount, "record inserted")
-                                cursor.close()
-                                db.close()
+                    # user must be "registered" and not blacklisted
+                    if handle not in blacklist_db:
+                        if handle in user_list:
+                            # campaign must have rewards left
+                            if rewards_remaining > 0:
+                                if 'twitter_handle' in list(df.columns) and handle in handles:
+                                    print(f"  # {handle} already rewarded")
+                                else:
+                                    print(f"  # {handle} needs rewards")
+                                    
+                                    # check whitelist
+                                    reward_user = True
+                                    if has_whitelist and handle not in whitelist:
+                                        reward_user = False
+                                    
+                                    if reward_user:
+                                        # write rewards to database (with null blockchainwritetime)
+                                        db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+                                        cursor = db.cursor()
+                                        query = "INSERT INTO rewards (campaign_id, twitter_handle, manager_ethereum_address) VALUES (%s, %s, %s);"
+                                        values = (campaign['campaign_id'], handle, campaign['manager_ethereum_address'])
+                                        cursor.execute(query, values)
+                                        db.commit()
+                                        print(cursor.rowcount, "record inserted")
+                                        cursor.close()
+                                        db.close()
 
-                                rewards_remaining -= 1
+                                        rewards_remaining -= 1
+                            else:
+                                print("Rewards exceeded for campaign")
+                                break
                         else:
-                            print("Rewards exceeded for campaign")
-                            break
+                            print(f"  # User {handle} not registered")
                     else:
-                        print(f"  # User {handle} not registered")
+                        print(f"  # User {handle} blacklisted")
 
 
             # update next run to 15 seconds from now
