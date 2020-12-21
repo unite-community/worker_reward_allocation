@@ -260,16 +260,27 @@ while True:
                                 if 'twitter_handle' in list(df.columns) and handle in handles:
                                     print(f"  # {handle} already rewarded")
                                 else:
-                                    
+
                                     # check whitelist
-                                    reward_user = True
-                                    if has_whitelist and handle not in whitelist:
-                                        reward_user = False
-                                        print(f"  # {handle} not on whitelist")
-                                    
-                                    if reward_user:
+                                    if has_whitelist:
+                                        if handle in whitelist:
+                                            # reward user on whitelist
+                                            print(f"  # whitelisted user {handle} needs rewards")
+                                            db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
+                                            cursor = db.cursor()
+                                            query = "INSERT INTO rewards (campaign_id, twitter_handle, manager_ethereum_address) VALUES (%s, %s, %s);"
+                                            values = (campaign['campaign_id'], handle, campaign['manager_ethereum_address'])
+                                            cursor.execute(query, values)
+                                            db.commit()
+                                            print(cursor.rowcount, "record inserted")
+                                            cursor.close()
+                                            db.close()
+                                        else:
+                                            print(f"  # {handle} not on whitelist")
+                                    else:
+                                        # non-whitelist campaign
                                         print(f"  # {handle} needs rewards")
-                                        # write rewards to database (with null blockchainwritetime)
+                                        # reward user
                                         db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
                                         cursor = db.cursor()
                                         query = "INSERT INTO rewards (campaign_id, twitter_handle, manager_ethereum_address) VALUES (%s, %s, %s);"
