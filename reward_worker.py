@@ -260,14 +260,15 @@ while True:
                                 if 'twitter_handle' in list(df.columns) and handle in handles:
                                     print(f"  # {handle} already rewarded")
                                 else:
-                                    print(f"  # {handle} needs rewards")
                                     
                                     # check whitelist
                                     reward_user = True
                                     if has_whitelist and handle not in whitelist:
                                         reward_user = False
+                                        print(f"  # {handle} not on whitelist")
                                     
                                     if reward_user:
+                                        print(f"  # {handle} needs rewards")
                                         # write rewards to database (with null blockchainwritetime)
                                         db = mysql.connect(host=secret['DBHOST'],user=secret['DBUSER'],passwd=secret['DBPASS'],database=secret['DBTABLE'])
                                         cursor = db.cursor()
