@@ -14,7 +14,7 @@ from web3 import Web3 # https://web3py.readthedocs.io/en/stable/contracts.html#c
 
 # load api key
 secret = {}
-with open('secret_staging.txt') as f:
+with open('secret.txt') as f:
     lines = f.readlines()
     for line in lines:
         secret[line.split("=")[0]] = line.split("=")[1].replace("\n","")
