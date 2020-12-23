@@ -3,6 +3,7 @@ import mysql.connector as mysql
 import datetime
 import pandas as pd
 import time
+import traceback
 
 import json
 from web3 import Web3 # https://web3py.readthedocs.io/en/stable/contracts.html#contract-functions
@@ -309,6 +310,7 @@ while True:
         except Exception as e:
             print("ERROR")
             print(e)
+            print(traceback.format_exc())
     else:
         print(f"{now} sleeping 15 seconds")
         time.sleep(15)
