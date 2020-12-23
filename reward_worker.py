@@ -216,6 +216,7 @@ while True:
                 if campaign['campaign_type'] == 'rtf': 
                     print("Campaign is RTF - subsetting out non-following users")
                     tweets = tweets[tweets['following'] == 1]
+            	print("XXX", len(tweets))
                 tweet_handles = list(tweets['twitter_handle'].unique())
                 tweet_handles = [h.lower() for h in tweet_handles]
 
