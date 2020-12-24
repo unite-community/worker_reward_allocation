@@ -81,12 +81,18 @@ while True:
         print(f"DEGBUG: LEN DF {len(df)}")
 
         # merge ethereum address
-        df = pd.merge(df, users, left_on='twitter_handle', right_on='twitter_handle', how='left')
+        df = pd.DataFrame()
+        try:
+            # merge ethereum address onto pending rewards
+            df = pd.merge(df, users, left_on='twitter_handle', right_on='twitter_handle', how='left')
 
-        null_rows = len(df[df['ethereum_address'].isnull()])
-        if null_rows > 0:
-            print(f"{null_rows} rows with null ethereum address")
-            df = df[~df['ethereum_address'].isnull()]
+            # alert any rows without eth addresses
+            null_rows = len(df[df['ethereum_address'].isnull()])
+            if null_rows > 0:
+                print(f"{null_rows} rows with null ethereum address")
+                df = df[~df['ethereum_address'].isnull()]
+        except:
+            pass
 
         for i, row in enumerate(df.values):
             row_dict = dict(zip(df.columns, row))
