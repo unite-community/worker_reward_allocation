@@ -185,7 +185,7 @@ while True:
                 db.close()
                 whitelist = []
                 for record in records:
-                    whitelist.append(record[0])
+                    whitelist.append(record[0].lower())
 
                 has_whitelist = False
                 if len(whitelist) > 0:
