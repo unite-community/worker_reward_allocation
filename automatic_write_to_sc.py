@@ -81,7 +81,6 @@ while True:
         print(f"DEGBUG: LEN DF {len(df)}")
 
         # merge ethereum address
-        df = pd.DataFrame()
         try:
             # merge ethereum address onto pending rewards
             df = pd.merge(df, users, left_on='twitter_handle', right_on='twitter_handle', how='left')
